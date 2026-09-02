@@ -1,0 +1,48 @@
+plugins { id 'com.android.application' }
+
+def webRoot = file('../..')
+def versionSource = new File(webRoot, 'storyverse-config.js').getText('UTF-8')
+def versionNameMatch = versionSource =~ /versionName:\s*'([^']+)'/
+def versionCodeMatch = versionSource =~ /versionCode:\s*(\d+)/
+if (!versionNameMatch.find() || !versionCodeMatch.find()) throw new GradleException('storyverse-config.js version is invalid')
+def storyVerseVersionName = versionNameMatch.group(1)
+def storyVerseVersionCode = versionCodeMatch.group(1).toInteger()
+def generatedWeb = layout.buildDirectory.dir('generated/storyverseAssets')
+
+android {
+    namespace 'cn.xiaoxiaodouzi.storyverse'
+    compileSdk 35
+    buildFeatures { buildConfig true }
+
+    defaultConfig {
+        applicationId 'cn.xiaoxiaodouzi.storyverse'
+        minSdk 24
+        targetSdk 34
+        versionCode storyVerseVersionCode
+        versionName storyVerseVersionName
+    }
+
+    sourceSets.main.assets.srcDir(generatedWeb)
+    buildTypes {
+        debug { applicationIdSuffix '' }
+        release { minifyEnabled false }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    applicationVariants.all { variant ->
+        variant.outputs.all { outputFileName = "StoryVerse-${variant.versionName}-${variant.buildType.name}.apk" }
+    }
+}
+
+tasks.register('syncStoryVerseWeb', Copy) {
+    from(webRoot) {
+        include 'index.html', 'storyverse-config.js', 'android-adapter.js', 'app.js',
+                'styles.css', 'overrides.css', 'world-v3.js', 'world-v3.css',
+                'world-v4.js', 'world-v4.css'
+    }
+    into(generatedWeb.map { it.dir('www') })
+}
+
+tasks.named('preBuild').configure { dependsOn('syncStoryVerseWeb') }

@@ -1,0 +1,54 @@
+# StoryVerse local Android toolchain and build caches
+.android-toolchain/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# Android signing files must never be committed
+*.keystore
+*.jks
+*.p12
+*.pem
+keystore.properties
+
+# Generated Android packages and mapping files
+*.apk
+*.aab
+*.ap_
+mapping.txt
+
+# Local API keys and environment configuration
+.env
+.env.*
+!.env.example
+*.local
+secrets.properties
+
+# Python cache and local virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Browser test profiles, logs, and temporary output
+.edge-log-v3/
+*.log
+logs/
+tmp/
+temp/
+
+# IDE and editor-specific files
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+

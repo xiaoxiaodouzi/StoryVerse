@@ -1,0 +1,13 @@
+<resources>
+    <style name="Theme.StoryVerse" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">@color/storyverse_purple</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/storyverse_background</item>
+        <item name="android:navigationBarColor">@color/storyverse_background</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/storyverse_background</item>
+    </style>
+</resources>
