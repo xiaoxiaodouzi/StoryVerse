@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
@@ -25,6 +26,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -38,8 +41,10 @@ import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST = 4107;
+    private static final int EXPORT_FILE_REQUEST = 4108;
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
+    private PendingExport pendingExport;
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
@@ -91,7 +96,25 @@ public final class MainActivity extends Activity {
             fileCallback = null;
             return;
         }
+        if (requestCode == EXPORT_FILE_REQUEST) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null && pendingExport != null) {
+                try (OutputStream output = getContentResolver().openOutputStream(data.getData())) {
+                    if (output == null) throw new IllegalStateException("无法打开保存位置");
+                    output.write(pendingExport.bytes);
+                    notifyWeb("文件已保存");
+                } catch (Exception error) {
+                    notifyWeb("保存失败，请重新选择位置");
+                }
+            }
+            pendingExport = null;
+            return;
+        }
         super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    private void notifyWeb(String message) {
+        if (webView == null) return;
+        webView.evaluateJavascript("window.toast&&window.toast(" + JSONObject.quote(message) + ")", null);
     }
 
     @Override
@@ -140,6 +163,49 @@ public final class MainActivity extends Activity {
             return BuildConfig.VERSION_NAME;
         }
 
+        /** 使用 Android 系统文件选择器保存，不需要申请宽泛的存储权限。 */
+        @JavascriptInterface
+        public void saveExport(String fileName, String mimeType, String base64Content) {
+            byte[] bytes;
+            try { bytes = Base64.decode(base64Content, Base64.DEFAULT); }
+            catch (Exception error) { mainHandler.post(() -> notifyWeb("导出内容无效")); return; }
+            String safeName = safeExportName(fileName);
+            mainHandler.post(() -> {
+                pendingExport = new PendingExport(bytes);
+                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                        .addCategory(Intent.CATEGORY_OPENABLE)
+                        .setType(mimeType)
+                        .putExtra(Intent.EXTRA_TITLE, safeName);
+                try { startActivityForResult(intent, EXPORT_FILE_REQUEST); }
+                catch (Exception error) { pendingExport = null; notifyWeb("无法打开系统文件保存器"); }
+            });
+        }
+
+        /** 将导出内容写入应用缓存，再通过临时只读 URI 调起系统分享面板。 */
+        @JavascriptInterface
+        public void shareExport(String fileName, String mimeType, String base64Content) {
+            byte[] bytes;
+            try { bytes = Base64.decode(base64Content, Base64.DEFAULT); }
+            catch (Exception error) { mainHandler.post(() -> notifyWeb("导出内容无效")); return; }
+            String safeName = safeExportName(fileName);
+            executor.execute(() -> {
+                try {
+                    File directory = new File(getCacheDir(), "exports");
+                    if (!directory.exists() && !directory.mkdirs()) throw new IllegalStateException("无法创建导出缓存");
+                    File file = new File(directory, safeName);
+                    try (FileOutputStream output = new FileOutputStream(file)) { output.write(bytes); }
+                    Uri uri = Uri.parse("content://" + getPackageName() + ".exports/" + Uri.encode(safeName));
+                    mainHandler.post(() -> {
+                        Intent share = new Intent(Intent.ACTION_SEND).setType(mimeType)
+                                .putExtra(Intent.EXTRA_STREAM, uri)
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        try { startActivity(Intent.createChooser(share, "分享 StoryVerse 调试数据")); }
+                        catch (Exception error) { notifyWeb("当前设备没有可用的分享应用"); }
+                    });
+                } catch (Exception error) { mainHandler.post(() -> notifyWeb("创建分享文件失败")); }
+            });
+        }
+
         @JavascriptInterface
         public void request(String id, String path, String body) {
             executor.execute(() -> {
@@ -157,6 +223,16 @@ public final class MainActivity extends Activity {
                 });
             });
         }
+    }
+
+    private static String safeExportName(String value) {
+        String name = value == null ? "StoryVerse-debug.json" : value.replaceAll("[^a-zA-Z0-9._-]", "_");
+        return name.isEmpty() ? "StoryVerse-debug.json" : name;
+    }
+
+    private static final class PendingExport {
+        final byte[] bytes;
+        PendingExport(byte[] bytes) { this.bytes = bytes; }
     }
 
     private static final class NativeResponse {

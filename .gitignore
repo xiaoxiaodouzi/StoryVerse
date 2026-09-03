@@ -33,6 +33,8 @@ venv/
 
 # Browser test profiles, logs, and temporary output
 .edge-log-v3/
+.edge-*/
+.edge-*.png
 *.log
 logs/
 tmp/
@@ -51,4 +53,3 @@ temp/
 Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
-

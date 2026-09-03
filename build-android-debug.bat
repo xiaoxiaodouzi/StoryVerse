@@ -5,7 +5,6 @@ set "JAVA_HOME=%~dp0.android-toolchain\jdk\jdk-17.0.20.1+1"
 set "ANDROID_HOME=%~dp0.android-toolchain\sdk"
 set "GRADLE_USER_HOME=%~dp0.android-toolchain\gradle-home"
 set "ANDROID_USER_HOME=%~dp0.android-toolchain\android-user-home"
-set "ANDROID_PREFS_ROOT=%~dp0.android-toolchain\android-user-home"
 set "GRADLE=%~dp0.android-toolchain\gradle\gradle-8.9\bin\gradle.bat"
 
 if not exist "%GRADLE%" (

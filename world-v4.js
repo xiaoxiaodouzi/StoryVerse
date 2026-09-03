@@ -235,7 +235,7 @@ window.messageHtml=function(m,isLast=false){
 };
 window.chatPage=function(){const c=chat();if(!c){state.page='chats';return chatsPage()}if(c.storyId!==db.currentStoryId){db.currentStoryId=c.storyId;save()}story().lastChatId=c.id;save();const people=presentActors(c),person=people[0];return`<div class="desktop-stage"><div class="phone world-v3"><section class="chat-shell">${isScene(c)?sceneHeaderV4(c):`<header class="chat-header v3-chat-header private-head"><button class="back" data-go="chats">${I.back}</button><button class="avatar-profile-button header-avatar" data-character-profile="${e(person?.id)}" aria-label="查看人物资料">${av(person)}</button><div class="chat-title"><strong>${e(c.name)}</strong><button data-story-switch>${e(story().name)} ${down}</button>${sceneOfCharacter(person?.id)?`<span class="location-chip">${sceneIcon}${e(sceneOfCharacter(person.id).name)}</span>`:''}</div><button class="bar-action" data-chat-menu>${I.more}</button></header>`}<div class="messages" id="messages"><div class="day">今天</div>${msgList().map((m,i,a)=>messageHtml(m,i===a.length-1)).join('')}${state.typingId?`<div class="typing"><span class="dots"><i></i><i></i><i></i></span>${e(actor(state.typingId)?.name||'角色')}正在输入…</div>`:''}${state.summarizing?'<div class="typing summary-typing">正在整理当前记忆…</div>':''}</div>${chatToolsPanel(c)}<div class="composer-area"><div class="composer"><textarea id="composer" rows="1" placeholder="说点什么…" ${state.sending?'disabled':''}></textarea><button class="send composer-action" id="send" aria-label="更多功能" ${state.sending?'disabled':''}>${I.plus}</button></div></div></section><div class="toast"></div>${modal()}</div></div>`};
 
-function characterKnownMemories(person){return db.memories.filter(m=>m.storyId===person.storyId&&Array.isArray(m.knownBy)&&m.knownBy.includes(person.id)).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))}
+function characterKnownMemories(person){return window.StoryVerseMemoryQuery.knownByCharacter(db,person)}
 function characterProfilePage(){const person=actor(state.profileCharacterId);if(!person){state.page=state.profileBack||'characters';return window.charactersPage()}const memories=characterKnownMemories(person),editable=!!char(person.id);return shell(`<main class="screen compact-screen character-profile"><section class="profile-summary">${av(person)}<div><h1>${e(person.name)}</h1><p>${e(person.role||'未知身份')}</p></div>${editable?`<button class="mini-create" data-edit-char="${person.id}">${I.edit} 编辑</button>`:'<span class="type-tag scene-tag">NPC</span>'}</section><dl class="profile-facts"><div><dt>性别</dt><dd>${e(person.gender||'未知')}</dd></div><div><dt>年龄</dt><dd>${e(person.age||'未知')}</dd></div><div><dt>身份</dt><dd>${e(person.role||'未知')}</dd></div></dl><section class="profile-intro"><h2>人物介绍</h2><p>${e(person.intro||person.background||'还没有人物介绍。')}</p></section><section class="profile-memory"><div class="section-head compact"><h2>人物记忆线</h2><span>${memories.length} 条</span></div><p class="inline-note">按时间汇总私聊与场景中，此人物明确知道的记忆。</p><div class="character-timeline">${memories.map((m,i)=>`<article><div class="memory-rail"><i></i>${i<memories.length-1?'<span></span>':''}</div><div><time>${e(m.when||'时间未知')}</time><p>${e(m.text)}</p><small>${e(chat(m.sourceChatId)?.name||'故事共同记忆')} · ${chat(m.sourceChatId)?.type==='private'?'私聊':'场景'}</small></div></article>`).join('')||'<div class="quiet-empty">还没有此人物知道的记忆。</div>'}</div></section></main>`,appbar(person.name,story().name,state.profileBack||'characters'),'home')}
 
 function settingRowV4(){return settingRow('AI','AI 接口与智能体','接口、模型、智能体与连接测试','ai',`${db.apis.length} 接口 · ${db.agents.length} 智能体`)}
@@ -311,29 +311,20 @@ function enterSuggestedScene(characterId,destination,sourceId=''){
 function enterCafeV4(characterId){enterSuggestedScene(characterId,'咖啡厅')}
 window.enterCafe=enterCafeV4;
 
-window.systemPrompt=function(person,target){const s=db.stories.find(x=>x.id===person.storyId)||story(),p=s.player||{},known=characterKnownMemories(person),memoryText=known.length?known.slice(0,40).reverse().map(m=>`- ${m.when||'时间未知'}｜${chat(m.sourceChatId)?.name||'故事'}：${m.text}`).join('\n'):'- 暂无',scene=isScene(target),sceneText=sceneChats(person.storyId).map(c=>`${c.name}（${c.scene.accessType==='private'?'私人':'公共'}场景：${c.scene.description||'暂无介绍'}）`).join('；')||'尚未创建场景';return`你正在扮演“${person.name}”${person.isNpc?`，你是属于“${target.name}”的固定 NPC`:`，生活在持续存在的故事《${s.name}》中`}。
-世界观：${s.worldview||''}
-故事背景：${s.background||''}
-当前剧情：${s.plot||''}
-当前故事已存在的场景：${sceneText}
-${scene?`你此刻确实位于场景“${target.name}”。\n场景介绍：${target.scene.description||''}\n场景状态：${target.scene.status||''}\n当前在场：用户、${presentActors(target).map(x=>x.name).join('、')}`:'这是你与用户的一对一私聊；人物记忆与场景经历仍然连续。'}
-用户角色：姓名“${p.name||'未知'}”，性别“${p.gender||'未知'}”，年龄“${p.age||'未知'}”，身份“${p.identity||'未知'}”，外貌“${p.appearance||'未知'}”。
-你的身份：${person.role||''}
-性格：${person.personality||''}
-说话方式：${person.speech||''}
-背景：${person.background||person.intro||''}
-与用户关系：${person.relation||''}
-你按时间连续知道的私聊与场景记忆：
-${memoryText}
-必须把最新记忆视为已经发生的事实。若记忆写明刚进入当前场景，不得声称自己刚从该场景出来。不要自行宣告离开或进入其他地点，除非用户明确要求，或你的回复明确以第一人称完成离场动作。只控制${person.name}本人，绝不替用户或其他人物说话、行动；只输出自然回复，不要写“${person.name}：”前缀。`};
+window.systemPrompt=function(person,target){const s=db.stories.find(x=>x.id===person.storyId)||story(),known=characterKnownMemories(person);return window.StoryVersePromptBuilder.buildCharacterPrompt({person,story:s,player:s.player||{},knownMemories:known.map(m=>({...m,sourceName:chat(m.sourceChatId)?.name||'故事'})),allScenes:sceneChats(person.storyId).map(c=>({name:c.name,accessType:c.scene.accessType,description:c.scene.description||''})),currentChat:{name:target.name,type:isScene(target)?'scene':'private',description:target.scene?.description||'',status:target.scene?.status||''},presentNames:isScene(target)?presentActors(target).map(x=>x.name):[]})};
 
 async function summarizeForAudience(c,turn,audience){const before=new Set(db.memories.map(x=>x.id)),ok=await V3.summarizeScene(c,turn);if(ok){const added=db.memories.filter(x=>!before.has(x.id)&&x.sourceChatId===c.id);added.forEach(m=>m.knownBy=[...new Set(audience)]);save()}return ok}
 window.sendMessage=async function(raw){
  const text=String(raw||'').trim();if(!text||state.sending)return;const c=chat();if(!c)return;
+ // 调试模块只观察本轮前后的业务状态；关闭采集时 beginTurn 直接返回 null。
+ const debugTurn=window.StoryVerseDebugData?.beginTurn(c,text)||null;
  const audience=presentActors(c).map(x=>x.id),turn=[],userMessage={id:uid('m'),chatId:c.id,senderId:'user',text,time:timeNow()};db.messages.push(userMessage);turn.push(userMessage);c.updatedAt=now();story().updatedAt=now();story().lastChatId=c.id;save();state.sending=true;render();
  const responders=c.type==='private'?presentActors(c):selectResponders(c,text);
- for(let i=0;i<responders.length;i++){const person=responders[i],useAI=!!agent(person.agentId);state.typingId=person.id;render();await new Promise(r=>setTimeout(r,useAI?350:550+i*180));try{const reply=useAI?await requestAI(person,c):mockReply(person,text,i),answer={id:uid('m'),chatId:c.id,senderId:person.id,text:reply,time:timeNow()};db.messages.push(answer);turn.push(answer);save();semanticTransition(c,reply,person.id)}catch(err){db.messages.push({id:uid('err'),chatId:c.id,senderId:person.id,text:err.message||'这条消息没有成功发送。',time:timeNow(),error:true,original:text});save();break}state.typingId=null;render()}
+ let hadError=false;
+ for(let i=0;i<responders.length;i++){const person=responders[i],useAI=!!agent(person.agentId);state.typingId=person.id;render();await new Promise(r=>setTimeout(r,useAI?350:550+i*180));try{const reply=useAI?await requestAI(person,c):mockReply(person,text,i),answer={id:uid('m'),chatId:c.id,senderId:person.id,text:reply,time:timeNow()};db.messages.push(answer);turn.push(answer);save();semanticTransition(c,reply,person.id)}catch(err){hadError=true;db.messages.push({id:uid('err'),chatId:c.id,senderId:person.id,text:err.message||'这条消息没有成功发送。',time:timeNow(),error:true,original:text});save();break}state.typingId=null;render()}
  semanticTransition(c,text,'user');state.sending=false;state.typingId=null;render();if(turn.length>1)await summarizeForAudience(c,turn,[...new Set([...audience,...turn.filter(x=>x.senderId!=='user').map(x=>x.senderId)])]);
+ // 完成后再记录，确保人物移动、记忆更新和错误状态都是最终真实结果。
+ window.StoryVerseDebugData?.finishTurn(debugTurn,{user_message_id:userMessage.id,responder_ids:responders.map(x=>x.id),had_error:hadError});
 };
 
 state.chatToolsOpen=false;state.eventSeed=0;

@@ -43,13 +43,24 @@ APK 输出位置：`android\app\build\outputs\apk\debug`
 - AI 在每轮对话后自动总结当前记忆，并按时间节点加入场景记忆时间线
 - 场景记忆默认只让当前聊天中的人物知晓，也可手动修改知情人物
 - 安卓端长按聊天气泡、电脑网页右键聊天气泡，可复制、重新生成、编辑或删除
+- 可在“设置 → 高级设置”中按需开启本地调试数据采集
+- 每次采集使用全局唯一 `record_id`，支持统计、重复标注、CSV / JSON 导出
+- 长按已记录的用户消息可标注“判断正确 / 判断错误 / 暂不判断”；错误可选回复人、离场、入场或其他类型
+- Android 可通过系统文件选择器保存调试数据，或分享到其他应用
 - 删除消息使用菜单内二次确认；重新生成不会把旧回答再次发给模型
 - 自动清理 AI 回复开头重复的“人物名：”
 - 未连接 API 时可使用内置示例回复测试完整流程
 
 ## 数据保存
 
-故事、人物、场景、NPC、消息、记忆和接口设置保存在当前浏览器的本机存储中。清理浏览器站点数据会删除这些内容。
+故事、人物、场景、NPC、消息、记忆和接口设置保存在当前浏览器或 Android WebView 的本机存储中。清理应用数据或浏览器站点数据会删除这些内容。
+
+两类数据分别保存：
+
+- 正常业务数据：`storyverse-data-v2`
+- 调试 / 训练数据：`storyverse-debug-data-v1`
+
+调试数据采集默认关闭。清空调试数据不会删除故事或聊天；导出文件不包含 API Key、Token 和模型服务鉴权信息。
 
 ## 当前世界结构
 
@@ -66,6 +77,54 @@ APK 输出位置：`android\app\build\outputs\apk\debug`
 
 API 密钥不会写入项目代码，也不会发送给 StoryVerse 之外的服务；聊天时只会由本地代理转发到你填写的接口地址。
 
+## 代码结构
+
+```text
+StoryVerse/
+├─ index.html                    # 页面入口及脚本、样式加载顺序
+├─ app.js                        # 第一版数据模型、基础页面、通用 CRUD 与旧版自测
+├─ world-v3.js                   # 故事 / 场景 / NPC 的第三阶段兼容增强
+├─ world-v4.js                   # 当前聊天、人物移动、事件和表格导入逻辑
+├─ modules/
+│  ├─ core/
+│  │  ├─ storage.js              # localStorage JSON 读写
+│  │  └─ record-id.js            # 全局唯一调试记录 ID
+│  ├─ ai/
+│  │  ├─ api-client.js           # OpenAI-Compatible 聊天请求
+│  │  └─ prompt-builder.js       # 当前角色 Prompt 拼装
+│  ├─ memory/
+│  │  └─ memory-query.js         # 按人物知情范围查询记忆
+│  └─ debug/
+│     ├─ debug-data.js           # 独立采集、统计、标注及导出格式
+│     ├─ debug-ui.js             # 高级设置与手机端反馈交互
+│     └─ debug-ui.css            # 调试页面样式
+├─ server.py                     # Windows 静态服务与 AI API 本地代理
+├─ android-adapter.js            # Web fetch 与 Android Java Bridge 的适配层
+└─ android/app/src/main/
+   ├─ AndroidManifest.xml        # 应用、联网权限和导出 Provider 声明
+   └─ java/.../
+      ├─ MainActivity.java       # WebView、API 代理、系统保存与分享
+      └─ ExportFileProvider.java # 只读分享临时文件，不暴露业务数据
+```
+
+这次采用渐进式模块化：旧脚本仍作为兼容层保留，先迁出了低风险、边界清楚的存储、API、Prompt、记忆查询和调试数据职责。人物移动与复杂 UI 状态仍在 `world-v4.js`，避免一次性改写导致既有行为变化。
+
+## 初学者阅读顺序
+
+1. 先看 `index.html`，理解文件加载顺序。
+2. 看 `modules/core/storage.js` 和 `record-id.js`，熟悉最小、独立模块。
+3. 看 `app.js` 开头的数据结构、`load()`、`save()` 和查询函数。
+4. 看 `modules/ai/api-client.js`，再对照 `server.py` 或 Android 的 `MainActivity.java`，理解一次模型请求如何转发。
+5. 看 `modules/ai/prompt-builder.js` 与 `modules/memory/memory-query.js`，理解角色上下文和知情记忆如何进入 Prompt。
+6. 看 `world-v4.js` 的 `semanticTransition()`、`systemPrompt()` 和 `sendMessage()`，串起完整聊天流程。
+7. 最后看 `modules/debug/debug-data.js` 和 `debug-ui.js`，理解如何在不改变业务判断的前提下记录、标注和导出数据。
+
+## 自测
+
+- 完整旧功能：打开 `http://127.0.0.1:4173/?selftest=1`
+- 调试数据模块：打开 `http://127.0.0.1:4173/?debugselftest=1`
+- Android：在 `android` 目录执行 `lintDebug assembleDebug`，或双击 `build-android-debug.bat` 构建 Debug APK
+
 ## 当前阶段边界
 
-这是安卓优先的浏览器开发版，还不是 APK。第八阶段的故事共同记忆、第九阶段的知情人物隔离，以及当前场景和自动记忆时间线已经完成。
+当前同时支持 Windows 浏览器开发版和 Android Debug APK。项目尚未加入 RAG、向量数据库、Tool Calling、PyTorch 意图模型或正式评测流水线；调试数据模块只是为这些后续学习方向准备可靠、可标注的数据基础。

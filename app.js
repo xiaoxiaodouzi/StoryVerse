@@ -39,12 +39,13 @@ function migrate(d){
  d.characters.forEach(c=>{if(c.agentId===undefined)c.agentId=d.agents[0]?.id||''});
  return d;
 }
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY));return migrate(d&&d.stories?d:structuredClone(seed))}catch{return migrate(structuredClone(seed))}}
+// 正常业务数据仍保留原来的 key；统一存储入口便于后续迁移，但不改变现有数据格式。
+function load(){const d=window.StoryVerseStorage.readJSON(KEY,null);return migrate(d&&d.stories?d:structuredClone(seed))}
 let db=load();
 const params=new URLSearchParams(location.search);
 const initialPage=['home','story','characters','chats','chat','scenes','settings','memory'].includes(params.get('page'))?params.get('page'):'home';
 const state={page:initialPage,tab:params.get('tab')||'overview',chatId:params.get('chat')||'p-alice',modal:params.get('modal')||null,editingId:null,sourceMessageId:null,actionMessageId:params.get('message')||null,actionAnchor:null,confirmDelete:false,typingId:null,sending:false,summarizing:false,agentApiId:'',agentNameDraft:''};
-function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function save(){window.StoryVerseStorage.writeJSON(KEY,db)}
 function e(v=''){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function story(){return db.stories.find(x=>x.id===db.currentStoryId)||db.stories[0]}
 function chars(sid=db.currentStoryId){return db.characters.filter(x=>x.storyId===sid)}

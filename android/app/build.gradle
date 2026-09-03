@@ -40,7 +40,7 @@ tasks.register('syncStoryVerseWeb', Copy) {
     from(webRoot) {
         include 'index.html', 'storyverse-config.js', 'android-adapter.js', 'app.js',
                 'styles.css', 'overrides.css', 'world-v3.js', 'world-v3.css',
-                'world-v4.js', 'world-v4.css'
+                'world-v4.js', 'world-v4.css', 'modules/**'
     }
     into(generatedWeb.map { it.dir('www') })
 }
