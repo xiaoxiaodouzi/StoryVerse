@@ -1,6 +1,7 @@
-/* StoryVerse World UI v4: compact layout, anchored switching and scene presence. */
+/* 当前交互层：人物移动、事件、批量导入、最终 Prompt 与消息发送流程。 */
 (()=>{
-const V3={modal:window.modal,bind:window.bind,sendMessage:window.sendMessage,enterCafe:window.enterCafe,summarizeScene:window.summarizeScene,messageHtml:window.messageHtml};
+// 当前交互层只复用世界基础层的弹窗、事件绑定和记忆总结。
+const V3={modal:window.modal,bind:window.bind,summarizeScene:window.summarizeScene};
 const eventToolIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="3"/></svg>';
 const imageToolIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m4 17 4-4 3 3 3-3 6 6"/></svg>';
 const fileToolIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5m-5 4h5"/></svg>';
@@ -32,6 +33,8 @@ function migrateWorldV4(){
  });
  db.schemaVersion=5;save();
 }
+// 暴露给内置回归测试，用同一条正式迁移路径重建测试数据。
+window.migrateWorldV4=migrateWorldV4;
 migrateWorldV4();
 
 function sceneOfCharacter(id,sid=db.currentStoryId){return db.chats.find(c=>c.storyId===sid&&isScene(c)&&c.scene.presentCharacterIds.includes(id))}

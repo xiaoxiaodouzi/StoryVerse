@@ -82,9 +82,9 @@ API 密钥不会写入项目代码，也不会发送给 StoryVerse 之外的服�
 ```text
 StoryVerse/
 ├─ index.html                    # 页面入口及脚本、样式加载顺序
-├─ app.js                        # 第一版数据模型、基础页面、通用 CRUD 与旧版自测
-├─ world-v3.js                   # 故事 / 场景 / NPC 的第三阶段兼容增强
-├─ world-v4.js                   # 当前聊天、人物移动、事件和表格导入逻辑
+├─ app.js                        # 基础数据模型、通用表单/CRUD 与完整回归自测
+├─ world-v3.js                   # 世界基础层：场景/NPC、通用页面、弹窗与绑定
+├─ world-v4.js                   # 当前交互层：移动、事件、导入、Prompt 与发送
 ├─ modules/
 │  ├─ core/
 │  │  ├─ storage.js              # localStorage JSON 读写
@@ -107,17 +107,18 @@ StoryVerse/
       └─ ExportFileProvider.java # 只读分享临时文件，不暴露业务数据
 ```
 
-这次采用渐进式模块化：旧脚本仍作为兼容层保留，先迁出了低风险、边界清楚的存储、API、Prompt、记忆查询和调试数据职责。人物移动与复杂 UI 状态仍在 `world-v4.js`，避免一次性改写导致既有行为变化。
+当前运行的是一条分层调用链，并非两套并行系统。`app.js` 保留仍被使用的基础数据、表单和 CRUD；`world-v3.js` 提供世界与场景基础能力；`world-v4.js` 是唯一的当前聊天交互入口。已经被覆盖的旧聊天选择、旧 Prompt、旧 API 请求、旧记忆请求和旧发送流程已删除。存储、API、Prompt、记忆查询和调试数据则已迁入职责单一的模块。
 
 ## 初学者阅读顺序
 
 1. 先看 `index.html`，理解文件加载顺序。
 2. 看 `modules/core/storage.js` 和 `record-id.js`，熟悉最小、独立模块。
-3. 看 `app.js` 开头的数据结构、`load()`、`save()` 和查询函数。
+3. 看 `app.js` 开头的数据结构、`load()`、`save()`、基础表单和 CRUD；聊天核心已不在这里。
 4. 看 `modules/ai/api-client.js`，再对照 `server.py` 或 Android 的 `MainActivity.java`，理解一次模型请求如何转发。
 5. 看 `modules/ai/prompt-builder.js` 与 `modules/memory/memory-query.js`，理解角色上下文和知情记忆如何进入 Prompt。
-6. 看 `world-v4.js` 的 `semanticTransition()`、`systemPrompt()` 和 `sendMessage()`，串起完整聊天流程。
-7. 最后看 `modules/debug/debug-data.js` 和 `debug-ui.js`，理解如何在不改变业务判断的前提下记录、标注和导出数据。
+6. 浏览 `world-v3.js` 的迁移函数和 `bind()`，了解场景基础层如何接住旧数据与通用交互。
+7. 看 `world-v4.js` 的 `semanticTransition()`、`systemPrompt()` 和 `sendMessage()`，串起唯一的当前聊天流程。
+8. 最后看 `modules/debug/debug-data.js` 和 `debug-ui.js`，理解如何在不改变业务判断的前提下记录、标注和导出数据。
 
 ## 自测
 
